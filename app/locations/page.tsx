@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Plus, MapPin, Trash2 } from 'lucide-react';
+import { turkiyeService } from '../services/turkiye.service';
 
 interface SavedLocation {
   id: string;
@@ -42,6 +43,51 @@ export default function LocationsPage() {
     color: 'blue',
   });
 
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [availableMahalleler, setAvailableMahalleler] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const provs = await turkiyeService.getProvinces();
+        if (mounted) setProvinces(provs || []);
+      } catch (err) {
+        console.error('Failed loading provinces', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!formData.il) { setDistricts([]); setAvailableMahalleler([]); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        if (mounted) setDistricts(ds || []);
+      } catch (err) {
+        console.error('Failed loading districts', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il]);
+
+  useEffect(() => {
+    if (!formData.il || !formData.ilce) { setAvailableMahalleler([]); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const m = await turkiyeService.getNeighborhoods(formData.il, formData.ilce);
+        if (mounted) setAvailableMahalleler(m.map(x => x.slug));
+      } catch (err) {
+        console.error('Failed loading mahalleler', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il, formData.ilce]);
+
   const colors = [
     { value: 'blue', label: 'Mavi', class: 'bg-blue-500' },
     { value: 'green', label: 'Yeşil', class: 'bg-green-500' },
@@ -50,11 +96,7 @@ export default function LocationsPage() {
     { value: 'red', label: 'Kırmızı', class: 'bg-red-500' },
   ];
 
-  const availableMahalleler = formData.ilce === 'kadikoy' 
-    ? ['caddebostan', 'bostanci', 'moda', 'fenerbahce', 'goztepe']
-    : formData.ilce === 'uskudar'
-    ? ['cengelkoy', 'kuzguncuk', 'beylerbeyi', 'kandilli']
-    : [];
+  
 
   const toggleMahalle = (mahalle: string) => {
     setFormData(prev => ({
@@ -198,12 +240,13 @@ export default function LocationsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">İl</label>
                   <select
                     value={formData.il}
-                    onChange={(e) => setFormData({ ...formData, il: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, il: e.target.value, ilce: '', mahalleler: [] })}
                     className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="istanbul">İstanbul</option>
-                    <option value="ankara">Ankara</option>
-                    <option value="izmir">İzmir</option>
+                    <option value="">Seçiniz</option>
+                    {provinces.map((p) => (
+                      <option key={p.id} value={p.slug}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -216,8 +259,9 @@ export default function LocationsPage() {
                     required
                   >
                     <option value="">Seçiniz</option>
-                    <option value="kadikoy">Kadıköy</option>
-                    <option value="uskudar">Üsküdar</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.slug}>{d.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>

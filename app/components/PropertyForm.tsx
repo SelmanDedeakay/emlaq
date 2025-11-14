@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { propertyOwnerService } from "../services/property-owner.service";
 import OwnerForm from './OwnerForm';
+import { turkiyeService } from '../services/turkiye.service';
 
 interface PropertyFormProps {
   onClose: () => void;
@@ -37,6 +38,9 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
   const totalSteps = 5;
   const [owners, setOwners] = useState<any[]>([]);
   const [showOwnerForm, setShowOwnerForm] = useState(false);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [mahalleler, setMahalleler] = useState<any[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -44,6 +48,13 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
       try {
         const data = await propertyOwnerService.getAll();
         if (mounted) setOwners(data || []);
+        // load provinces list
+        try {
+          const provs = await turkiyeService.getProvinces();
+          if (mounted) setProvinces(provs || []);
+        } catch (err) {
+          console.error('Failed loading provinces', err);
+        }
       } catch (err) {
         console.error("Error loading owners", err);
       }
@@ -78,6 +89,43 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
       title: p.title || prev.title,
     }));
   }, [property]);
+
+  // load districts when province (il) changes
+  useEffect(() => {
+    if (!formData.il) {
+      setDistricts([]);
+      setMahalleler([]);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        if (mounted) setDistricts(ds || []);
+      } catch (err) {
+        console.error('Failed loading districts', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il]);
+
+  // load mahalleler when ilce changes
+  useEffect(() => {
+    if (!formData.il || !formData.ilce) {
+      setMahalleler([]);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const m = await turkiyeService.getNeighborhoods(formData.il, formData.ilce);
+        if (mounted) setMahalleler(m || []);
+      } catch (err) {
+        console.error('Failed loading mahalleler', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il, formData.ilce]);
 
   const validateStep = (step: number) => {
     const newErrors: Record<string, string> = {};
@@ -215,21 +263,22 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">İl <span className="text-red-500">*</span></label>
-                  <select name="il" value={formData.il} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" required>
+                  <select name="il" value={formData.il} onChange={(e) => { handleChange(e); setFormData((prev: any) => ({ ...prev, ilce: '', mahalle: '' })); }} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" required>
                     <option value="">Seçiniz</option>
-                    <option value="istanbul">İstanbul</option>
-                    <option value="ankara">Ankara</option>
-                    <option value="izmir">İzmir</option>
-                    <option value="bursa">Bursa</option>
+                    {provinces.map((p: any) => (
+                      <option key={p.id} value={p.slug}>{p.name}</option>
+                    ))}
                   </select>
                   {errors.il && <p className="text-sm text-red-500 mt-1">{errors.il}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">İlçe <span className="text-red-500">*</span></label>
-                  <select name="ilce" value={formData.ilce} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" required disabled={!formData.il}>
+                  <select name="ilce" value={formData.ilce} onChange={(e) => { handleChange(e); setFormData((prev: any) => ({ ...prev, mahalle: '' })); }} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" required disabled={!formData.il}>
                     <option value="">Seçiniz</option>
-                    {formData.il === 'istanbul' && (<><option value="kadikoy">Kadıköy</option><option value="uskudar">Üsküdar</option><option value="besiktas">Beşiktaş</option><option value="sisli">Şişli</option></>)}
+                    {districts.map((d: any) => (
+                      <option key={d.id} value={d.slug}>{d.name}</option>
+                    ))}
                   </select>
                   {errors.ilce && <p className="text-sm text-red-500 mt-1">{errors.ilce}</p>}
                 </div>
@@ -238,7 +287,9 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mahalle <span className="text-red-500">*</span></label>
                   <select name="mahalle" value={formData.mahalle} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" required disabled={!formData.ilce}>
                     <option value="">Seçiniz</option>
-                    {formData.ilce === 'kadikoy' && (<><option value="caddebostan">Caddebostan</option><option value="bostanci">Bostancı</option><option value="moda">Moda</option></>)}
+                    {mahalleler.map((m: any) => (
+                      <option key={m.id} value={m.slug}>{m.name}</option>
+                    ))}
                   </select>
                   {errors.mahalle && <p className="text-sm text-red-500 mt-1">{errors.mahalle}</p>}
                 </div>

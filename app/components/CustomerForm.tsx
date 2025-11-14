@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { turkiyeService } from '../services/turkiye.service';
 
 interface CustomerFormProps {
   onClose: () => void;
@@ -33,6 +34,51 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
     furnished: false,
     newBuilding: false,
   });
+
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [availableMahalleler, setAvailableMahalleler] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const provs = await turkiyeService.getProvinces();
+        if (mounted) setProvinces(provs || []);
+      } catch (err) {
+        console.error('Failed loading provinces', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!formData.il) { setDistricts([]); setAvailableMahalleler([]); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        if (mounted) setDistricts(ds || []);
+      } catch (err) {
+        console.error('Failed loading districts', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il]);
+
+  useEffect(() => {
+    if (!formData.il || !formData.ilce) { setAvailableMahalleler([]); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const m = await turkiyeService.getNeighborhoods(formData.il, formData.ilce);
+        if (mounted) setAvailableMahalleler(m.map(x => x.slug));
+      } catch (err) {
+        console.error('Failed loading mahalleler', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [formData.il, formData.ilce]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,12 +114,7 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
     }));
   };
 
-  // Mevcut mahalle seçenekleri
-  const availableMahalleler = formData.ilce === 'kadikoy' 
-    ? ['caddebostan', 'bostanci', 'moda', 'fenerbahce', 'goztepe']
-    : formData.ilce === 'uskudar'
-    ? ['cengelkoy', 'kuzguncuk', 'beylerbeyi']
-    : [];
+  // availableMahalleler is loaded from API into state
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
@@ -240,15 +281,14 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
                   <select
                     name="il"
                     value={formData.il}
-                    onChange={handleChange}
+                    onChange={(e) => { handleChange(e); setFormData((prev: any) => ({ ...prev, ilce: '', mahalleler: [] })); }}
                     className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   >
                     <option value="">Seçiniz</option>
-                    <option value="istanbul">İstanbul</option>
-                    <option value="ankara">Ankara</option>
-                    <option value="izmir">İzmir</option>
-                    <option value="bursa">Bursa</option>
+                    {provinces.map((p) => (
+                      <option key={p.id} value={p.slug}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -260,20 +300,15 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
                   <select
                     name="ilce"
                     value={formData.ilce}
-                    onChange={handleChange}
+                    onChange={(e) => { handleChange(e); setFormData((prev: any) => ({ ...prev, mahalleler: [] })); }}
                     className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                     disabled={!formData.il}
                   >
                     <option value="">Seçiniz</option>
-                    {formData.il === 'istanbul' && (
-                      <>
-                        <option value="kadikoy">Kadıköy</option>
-                        <option value="uskudar">Üsküdar</option>
-                        <option value="besiktas">Beşiktaş</option>
-                        <option value="sisli">Şişli</option>
-                      </>
-                    )}
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.slug}>{d.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
