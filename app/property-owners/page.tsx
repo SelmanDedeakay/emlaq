@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { propertyOwnerService } from '../services/property-owner.service';
 import OwnerForm from '../components/OwnerForm';
-import { Loader2, Plus, Home } from 'lucide-react';
+import { Loader2, Plus, Home, Edit, Trash } from 'lucide-react';
 
 export default function PropertyOwnersPage() {
   const [owners, setOwners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingOwner, setEditingOwner] = useState<any | null>(null);
 
   const loadOwners = async () => {
     try {
@@ -62,6 +63,7 @@ export default function PropertyOwnersPage() {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">IBAN</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Adres</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Notlar</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">İşlemler</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -75,6 +77,26 @@ export default function PropertyOwnersPage() {
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.iban || '-'}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.address || '-'}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.notes || '-'}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button title="Düzenle" onClick={() => { setEditingOwner(o); }} className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button title="Sil" onClick={async () => {
+                          const ok = confirm('Bu mal sahibini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.');
+                          if (!ok) return;
+                          try {
+                            await propertyOwnerService.remove(o.id);
+                            await loadOwners();
+                          } catch (err) {
+                            console.error('Delete error', err);
+                            alert('Silme işlemi başarısız oldu');
+                          }
+                        }} className="text-red-600 hover:text-red-800 p-1 rounded-md">
+                          <Trash className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -85,6 +107,10 @@ export default function PropertyOwnersPage() {
 
       {showForm && (
         <OwnerForm onClose={() => { setShowForm(false); loadOwners(); }} onCreated={() => { setShowForm(false); loadOwners(); }} />
+      )}
+
+      {editingOwner && (
+        <OwnerForm owner={editingOwner} onClose={() => { setEditingOwner(null); loadOwners(); }} onUpdated={() => { setEditingOwner(null); loadOwners(); }} />
       )}
     </DashboardLayout>
   );

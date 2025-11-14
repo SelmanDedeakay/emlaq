@@ -4,14 +4,17 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import { propertyOwnerService } from "../services/property-owner.service";
+import OwnerForm from './OwnerForm';
 
 interface PropertyFormProps {
   onClose: () => void;
   onSubmit: (data: any) => void;
+  property?: any;
 }
 
-export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
+export default function PropertyForm({ onClose, onSubmit, property }: PropertyFormProps) {
   const [formData, setFormData] = useState<any>({
+    title: '',
     ownerId: "",
     status: "satilik",
     type: "daire",
@@ -33,6 +36,7 @@ export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
   const [owners, setOwners] = useState<any[]>([]);
+  const [showOwnerForm, setShowOwnerForm] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -49,6 +53,31 @@ export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
       mounted = false;
     };
   }, []);
+
+  // Prefill form when editing an existing property
+  useEffect(() => {
+    if (!property) return;
+    const p = property;
+    setFormData((prev: any) => ({
+      ...prev,
+      ownerId: p.owner_id || prev.ownerId || '',
+      status: p.status || prev.status,
+      type: p.type || prev.type,
+      il: p.il || prev.il,
+      ilce: p.ilce || prev.ilce,
+      mahalle: p.mahalle || prev.mahalle,
+      price: p.price ?? prev.price,
+      rooms: p.rooms || prev.rooms,
+      squareMeters: p.square_meters ?? prev.squareMeters,
+      balcony: p.features?.balcony ?? prev.balcony,
+      parking: p.features?.parking ?? prev.parking,
+      inComplex: p.features?.inComplex ?? prev.inComplex,
+      furnished: p.features?.furnished ?? prev.furnished,
+      newBuilding: p.features?.newBuilding ?? prev.newBuilding,
+      imageUrls: p.property_images ? p.property_images.map((img: any) => img.image_url) : prev.imageUrls,
+      title: p.title || prev.title,
+    }));
+  }, [property]);
 
   const validateStep = (step: number) => {
     const newErrors: Record<string, string> = {};
@@ -109,7 +138,7 @@ export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Yeni Portföy Ekle</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{property ? 'Portföyü Düzenle' : 'Yeni Portföy Ekle'}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Adım {currentStep} / {totalSteps}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -158,13 +187,18 @@ export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mal Sahibi <span className="text-red-500">*</span></label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mal Sahibi <span className="text-red-500">*</span></label>
+                    <button type="button" onClick={() => setShowOwnerForm(true)} className="text-sm text-blue-600 hover:underline">Yeni Mal Sahibi Ekle</button>
+                  </div>
                   <select name="ownerId" value={formData.ownerId} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                     <option value="">Seçiniz</option>
                     {owners.map((o) => <option key={o.id} value={o.id}>{o.full_name}{o.phone ? ` (${o.phone})` : ''}</option>)}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Portföyün sahibi önceden oluşturulmuş olmalı. Bulamazsanız önce "Mal Sahipleri" sayfasından ekleyin.</p>
+                  <p className="text-xs text-gray-500 mt-1">Portföyün sahibi önceden oluşturulmuş olmalı. Bulamazsanız yeni oluşturun.</p>
                   {errors.ownerId && <p className="text-sm text-red-500 mt-1">{errors.ownerId}</p>}
+
+                  {/* OwnerForm is rendered outside the main <form> to avoid nested forms */}
                 </div>
               </div>
             </div>
@@ -294,9 +328,20 @@ export default function PropertyForm({ onClose, onSubmit }: PropertyFormProps) {
             {currentStep === 1 && (
               <button type="button" onClick={onClose} className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors">İptal</button>
             )}
-            <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium shadow-lg hover:shadow-xl transition-all">{currentStep < totalSteps ? 'İleri →' : 'Portföy Ekle'}</button>
+            <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium shadow-lg hover:shadow-xl transition-all">{currentStep < totalSteps ? 'İleri →' : (property ? 'Güncelle' : 'Portföy Ekle')}</button>
           </div>
         </form>
+        {/* Render OwnerForm modal outside of the parent <form> to prevent nested <form> elements */}
+        {showOwnerForm && (
+          <OwnerForm
+            onClose={() => setShowOwnerForm(false)}
+            onCreated={(newOwner: any) => {
+              setOwners((prev) => [newOwner, ...prev]);
+              setFormData((prev: any) => ({ ...prev, ownerId: newOwner.id }));
+              setShowOwnerForm(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );

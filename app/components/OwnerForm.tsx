@@ -1,18 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { propertyOwnerService, PropertyOwnerData } from '../services/property-owner.service';
 
 interface OwnerFormProps {
   onClose: () => void;
   onCreated?: (owner: any) => void;
+  onUpdated?: (owner: any) => void;
+  owner?: any; // if provided, form acts as edit
 }
 
-export default function OwnerForm({ onClose, onCreated }: OwnerFormProps) {
+export default function OwnerForm({ onClose, onCreated, onUpdated, owner }: OwnerFormProps) {
   const [form, setForm] = useState<PropertyOwnerData>({ full_name: '', phone: '', email: '', tc_no: '', bank_account_name: '', iban: '', address: '', notes: '' });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string,string>>({});
+
+  useEffect(() => {
+    if (owner) {
+      // populate form with existing owner values
+      setForm({
+        full_name: owner.full_name || '',
+        phone: owner.phone || '',
+        email: owner.email || '',
+        tc_no: owner.tc_no || '',
+        bank_account_name: owner.bank_account_name || '',
+        iban: owner.iban || '',
+        address: owner.address || '',
+        notes: owner.notes || '',
+      });
+    }
+  }, [owner]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -36,12 +54,19 @@ export default function OwnerForm({ onClose, onCreated }: OwnerFormProps) {
     if (!validate()) return;
     setLoading(true);
     try {
+      if (owner && owner.id) {
+        const updated = await propertyOwnerService.update(owner.id, form);
+        onUpdated?.(updated);
+        onClose();
+        return;
+      }
+
       const created = await propertyOwnerService.create(form);
       onCreated?.(created);
       onClose();
     } catch (err: any) {
-      console.error('Error creating owner', err);
-      alert(err.message || 'Mal sahibi oluşturulamadı');
+      console.error('Error saving owner', err);
+      alert(err.message || (owner ? 'Mal sahibi güncellenemedi' : 'Mal sahibi oluşturulamadı'));
     } finally {
       setLoading(false);
     }
@@ -51,7 +76,7 @@ export default function OwnerForm({ onClose, onCreated }: OwnerFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Yeni Mal Sahibi Ekle</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{owner ? 'Mal Sahibini Düzenle' : 'Yeni Mal Sahibi Ekle'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="w-5 h-5"/></button>
         </div>
 
@@ -105,7 +130,7 @@ export default function OwnerForm({ onClose, onCreated }: OwnerFormProps) {
 
           <div className="flex gap-3 justify-end">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">İptal</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg">{loading ? 'Kaydediliyor...' : 'Kaydet'}</button>
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg">{loading ? (owner ? 'Güncelleniyor...' : 'Kaydediliyor...') : (owner ? 'Güncelle' : 'Kaydet')}</button>
           </div>
         </form>
       </div>

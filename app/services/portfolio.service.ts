@@ -178,6 +178,36 @@ export const portfolioService = {
       };
     }
 
+    // If ownerId provided, validate it belongs to the same organization and set owner_id
+    if (formData.ownerId) {
+      // Get current user to read organization
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.organization_id) {
+        throw new Error('User does not belong to an organization');
+      }
+
+      const { data: owner, error: ownerError } = await supabase
+        .from('property_owners')
+        .select('id')
+        .eq('id', formData.ownerId)
+        .eq('organization_id', profile.organization_id)
+        .single();
+
+      if (ownerError || !owner) {
+        throw new Error('Seçilen mal sahibi bulunamadı veya yetkiniz yok');
+      }
+
+      updates.owner_id = formData.ownerId;
+    }
+
     const { data, error } = await supabase
       .from('portfolios')
       .update(updates)

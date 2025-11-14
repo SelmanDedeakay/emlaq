@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import PropertyForm from '../components/PropertyForm';
-import { Home, Plus, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Home, Plus, Loader2, Image as ImageIcon, Edit, Trash } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { portfolioService } from '../services/portfolio.service';
@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function PortfolioPage() {
   const [showForm, setShowForm] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<any | null>(null);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -63,6 +64,37 @@ export default function PortfolioPage() {
     } catch (error: any) {
       console.error('Error adding property:', error);
       alert(error.message || 'Portföy eklenirken bir hata oluştu');
+    }
+  };
+
+  const handleUpdateProperty = async (formData: any) => {
+    if (!editingProperty) return;
+    try {
+      await portfolioService.update(editingProperty.id, {
+        title: formData.title || `${formData.mahalle} ${formData.rooms}`,
+        ownerId: formData.ownerId,
+        status: formData.status,
+        type: formData.type,
+        price: parseFloat(formData.price),
+        il: formData.il,
+        ilce: formData.ilce,
+        mahalle: formData.mahalle,
+        rooms: formData.rooms,
+        squareMeters: parseInt(formData.squareMeters),
+        balcony: formData.balcony,
+        parking: formData.parking,
+        inComplex: formData.inComplex,
+        furnished: formData.furnished,
+        newBuilding: formData.newBuilding,
+        imageUrls: formData.imageUrls || [],
+      });
+      await loadProperties();
+      setShowForm(false);
+      setEditingProperty(null);
+      alert('Portföy güncellendi!');
+    } catch (error: any) {
+      console.error('Error updating property:', error);
+      alert(error.message || 'Portföy güncellenirken bir hata oluştu');
     }
   };
 
@@ -135,6 +167,7 @@ export default function PortfolioPage() {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">İlçe</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Mahalle</th>
                   <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Fiyat</th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">İşlemler</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -186,6 +219,35 @@ export default function PortfolioPage() {
                           {property.price ? Number(property.price).toLocaleString('tr-TR') : '-'} ₺
                         </span>
                       </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingProperty(property); setShowForm(true); }}
+                            title="Düzenle"
+                            className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const ok = confirm('Bu portföyü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.');
+                              if (!ok) return;
+                              try {
+                                await portfolioService.delete(property.id);
+                                await loadProperties();
+                              } catch (err) {
+                                console.error('Delete error', err);
+                                alert('Silme işlemi başarısız oldu');
+                              }
+                            }}
+                            title="Sil"
+                            className="text-red-600 hover:text-red-800 p-1 rounded-md"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -198,8 +260,9 @@ export default function PortfolioPage() {
       {/* Form Modal */}
       {showForm && (
         <PropertyForm
-          onClose={() => setShowForm(false)}
-          onSubmit={handleAddProperty}
+          property={editingProperty || undefined}
+          onClose={() => { setShowForm(false); setEditingProperty(null); }}
+          onSubmit={editingProperty ? handleUpdateProperty : handleAddProperty}
         />
       )}
     </DashboardLayout>
