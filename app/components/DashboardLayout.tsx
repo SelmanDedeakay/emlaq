@@ -4,9 +4,11 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Logo from './Logo';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard,
   Folder,
+  Loader2,
   Users,
   Map,
   Settings,
@@ -18,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 
-const NavItem = ({ href, icon: Icon, children }) => {
+const NavItem = ({ href, icon: Icon, children }: { href: string; icon: any; children: ReactNode }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
 
@@ -39,29 +41,33 @@ const NavItem = ({ href, icon: Icon, children }) => {
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, profile, loading, signOut } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const user = localStorage.getItem('emlaq_user');
-    if (!user) {
+    if (!loading && !user) {
       router.push('/login');
-    } else {
-      setIsLoading(false);
     }
-  }, [router]);
+  }, [user, loading, router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('emlaq_user');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <p className="text-gray-400">Yükleniyor...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   const SidebarContent = () => (
@@ -101,6 +107,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </>
   );
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (profile?.full_name) {
+      const names = profile.full_name.split(' ');
+      if (names.length >= 2) {
+        return names[0][0] + names[names.length - 1][0];
+      }
+      return names[0][0];
+    }
+    return user?.email?.[0]?.toUpperCase() || 'E';
+  };
+
+  // Get user display name
+  const getUserDisplayName = () => {
+    return profile?.full_name || user?.email?.split('@')[0] || 'Emlakçı';
+  };
+
+  // Get user role display
+  const getUserRole = () => {
+    if (profile?.role === 'admin') return 'Admin';
+    if (profile?.role === 'agent') return 'Danışman';
+    return 'Kullanıcı';
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
       {/* Static Sidebar for larger screens */}
@@ -127,7 +157,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <header className="bg-white dark:bg-gray-800 shadow-sm h-20 flex items-center justify-between px-4 sm:px-8 border-b dark:border-gray-700">
           <div className="flex items-center">
             <button
-              className="lg:hidden text-gray-500 hover:text-gray-700 mr-4"
+              className="lg:hidden text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mr-4"
               onClick={() => setSidebarOpen(!isSidebarOpen)}
             >
               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
@@ -138,7 +168,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-3 sm:gap-6">
             <Link
-              href="/portfolio/new"
+              href="/portfolio"
               className="hidden sm:flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <PlusCircle size={18} />
@@ -149,14 +179,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </button>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                E
+                {getUserInitials()}
               </div>
               <div className="hidden md:block text-sm">
-                <p className="font-semibold text-gray-800 dark:text-white">Emlakçı</p>
-                <p className="text-gray-500 dark:text-gray-400">Admin</p>
+                <p className="font-semibold text-gray-800 dark:text-white">
+                  {getUserDisplayName()}
+                </p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {getUserRole()}
+                </p>
               </div>
-              <button>
-                <ChevronDown size={20} className="text-gray-500" />
+              <button className="hidden md:block">
+                <ChevronDown size={20} className="text-gray-500 dark:text-gray-400" />
               </button>
             </div>
           </div>
