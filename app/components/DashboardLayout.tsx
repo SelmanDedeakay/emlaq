@@ -85,6 +85,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <NavItem href="/customers" icon={Users}>
           Müşterilerim
         </NavItem>
+        <NavItem href="/property-owners" icon={Users}>
+          Mal Sahipleri
+        </NavItem>
         <NavItem href="/map" icon={Map}>
           Harita Görünümü
         </NavItem>

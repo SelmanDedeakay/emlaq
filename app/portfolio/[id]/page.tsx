@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Logo from '../../components/Logo';
 import MatchCard from '../../components/MatchCard';
-import { ArrowLeft, Home, MapPin, Banknote, Maximize, Loader2 } from 'lucide-react';
+import { ArrowLeft, Home, MapPin, Banknote, Maximize, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { matchPropertyToCustomers } from '../../utils/matching';
 import { portfolioService } from '../../services/portfolio.service';
@@ -19,6 +19,7 @@ export default function PropertyDetailPage() {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     if (user && params.id) {
@@ -31,7 +32,6 @@ export default function PropertyDetailPage() {
       setLoading(true);
       setError('');
 
-      // Load property details and all customers in parallel
       const [propertyData, customersData] = await Promise.all([
         portfolioService.getById(params.id as string),
         customerService.getAll(),
@@ -45,7 +45,6 @@ export default function PropertyDetailPage() {
       setProperty(propertyData);
       setCustomers(customersData || []);
 
-      // Transform property data for matching algorithm
       const transformedProperty = {
         id: propertyData.id,
         status: propertyData.status,
@@ -63,7 +62,6 @@ export default function PropertyDetailPage() {
         features: propertyData.features || {},
       };
 
-      // Calculate matches
       const calculatedMatches = matchPropertyToCustomers(
         transformedProperty,
         customersData || []
@@ -78,7 +76,6 @@ export default function PropertyDetailPage() {
     }
   };
 
-  // Get feature display name
   const getFeatureDisplayName = (key: string) => {
     const featureNames: Record<string, string> = {
       balcony: 'Balkonlu',
@@ -88,6 +85,17 @@ export default function PropertyDetailPage() {
       newBuilding: 'Yeni Bina',
     };
     return featureNames[key] || key;
+  };
+
+  const images = property?.property_images?.sort((a: any, b: any) => a.sort_order - b.sort_order) || [];
+  const hasImages = images.length > 0;
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
   if (loading) {
@@ -146,7 +154,67 @@ export default function PropertyDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Sol: Portföy Detayları */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            {/* Resim Galerisi */}
+            {hasImages && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+                <div className="relative aspect-[4/3] bg-gray-200 dark:bg-gray-700">
+                  <img
+                    src={images[currentImageIndex].image_url}
+                    alt={`${property.title} - Resim ${currentImageIndex + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Navigation Arrows */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-full transition-all"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-2 rounded-full transition-all"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Image Counter */}
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-sm px-3 py-1 rounded-full">
+                    {currentImageIndex + 1} / {images.length}
+                  </div>
+                </div>
+
+                {/* Thumbnail Strip */}
+                {images.length > 1 && (
+                  <div className="p-3 flex gap-2 overflow-x-auto">
+                    {images.map((img: any, idx: number) => (
+                      <button
+                        key={img.id}
+                        onClick={() => setCurrentImageIndex(idx)}
+                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                          idx === currentImageIndex
+                            ? 'border-blue-600 ring-2 ring-blue-300'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                        }`}
+                      >
+                        <img
+                          src={img.image_url}
+                          alt={`Thumbnail ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Detaylar Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 sticky top-28">
               <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{property.title}</h1>

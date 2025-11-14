@@ -1,10 +1,11 @@
-// app/portfolio/page.tsx
+// app/portfolio/page.tsx (UPDATED)
 'use client';
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import PropertyForm from '../components/PropertyForm';
-import { Home, Plus, Loader2 } from 'lucide-react';
+import { Home, Plus, Loader2, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { portfolioService } from '../services/portfolio.service';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +40,7 @@ export default function PortfolioPage() {
     try {
       await portfolioService.create({
         title: formData.title || `${formData.mahalle} ${formData.rooms}`,
+        ownerId: formData.ownerId,
         status: formData.status,
         type: formData.type,
         price: parseFloat(formData.price),
@@ -52,6 +54,7 @@ export default function PortfolioPage() {
         inComplex: formData.inComplex,
         furnished: formData.furnished,
         newBuilding: formData.newBuilding,
+        imageUrls: formData.imageUrls || [], // Resimleri ekle
       });
       
       await loadProperties();
@@ -123,42 +126,69 @@ export default function PortfolioPage() {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Başlık</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Durum</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Tip</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Lokasyon</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Fiyat</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Resim</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Portföy No</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Başlık</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Portföy Sahibi</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Emlak Tipi</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Şehir</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">İlçe</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Mahalle</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Fiyat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {properties.map((property) => (
-                  <tr
-                    key={property.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/portfolio/${property.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
-                          <Home className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                {properties.map((property) => {
+                  const owner = property.property_owners && (property.property_owners.full_name || property.property_owners[0]?.full_name);
+                  const portfolioNo = property.id ? String(property.id).slice(0, 8) : '-';
+                  const typeLabelMap: Record<string, string> = {
+                    daire: 'Daire',
+                    mustakil: 'Müstakil',
+                    isyeri: 'İşyeri',
+                    arsa: 'Arsa'
+                  };
+                  const typeLabel = typeLabelMap[String(property.type)] || property.type;
+
+                  return (
+                    <tr
+                      key={property.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/portfolio/${property.id}`)}
+                    >
+                      <td className="px-4 py-4">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                          {property.property_images && property.property_images.length > 0 ? (
+                            <Image
+                              src={property.property_images[0].image_url}
+                              alt={property.title}
+                              width={48}
+                              height={48}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <Home className="w-5 h-5 text-gray-400" />
+                          )}
                         </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">{portfolioNo}</td>
+                      <td className="px-6 py-4">
                         <span className="font-medium text-gray-900 dark:text-white">{property.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(property.status)}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-gray-700 dark:text-gray-300 capitalize">{property.type}</span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400 capitalize">
-                      {property.mahalle}, {property.ilce}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {property.price.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{owner || '—'}</td>
+                      <td className="px-6 py-4">
+                        <span className="text-gray-700 dark:text-gray-300">{typeLabel}</span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{property.il || '-'}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{property.ilce || '-'}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{property.mahalle || '-'}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {property.price ? Number(property.price).toLocaleString('tr-TR') : '-'} ₺
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

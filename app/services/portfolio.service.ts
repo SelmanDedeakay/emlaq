@@ -1,9 +1,10 @@
-// services/portfolio.service.ts
+// services/portfolio.service.ts (UPDATED)
 import { supabase } from '../lib/supabase';
 import { getMahalleCoordinates } from '@/app/utils/geocoding';
 
 export interface PortfolioFormData {
   title: string;
+  ownerId: string; // yeni required owner alanı
   status: 'satilik' | 'kiralik' | 'satildi';
   type: 'daire' | 'mustakil' | 'isyeri' | 'arsa';
   price: number;
@@ -17,6 +18,7 @@ export interface PortfolioFormData {
   inComplex: boolean;
   furnished: boolean;
   newBuilding: boolean;
+  imageUrls?: string[]; // Yeni alan
 }
 
 export const portfolioService = {
@@ -26,7 +28,8 @@ export const portfolioService = {
       .from('portfolios')
       .select(`
         *,
-        property_images(*)
+        property_images(*),
+        property_owners(full_name)
       `)
       .order('created_at', { ascending: false });
 
@@ -41,6 +44,7 @@ export const portfolioService = {
       .select(`
         *,
         property_images(*),
+        property_owners(*),
         profiles(full_name, email)
       `)
       .eq('id', id)
@@ -67,6 +71,23 @@ export const portfolioService = {
       throw new Error('User does not belong to an organization');
     }
 
+    // Owner must be provided
+    if (!formData.ownerId) {
+      throw new Error('Mal sahibi seçilmesi zorunludur');
+    }
+
+    // Validate owner exists and belongs to same organization
+    const { data: owner, error: ownerError } = await supabase
+      .from('property_owners')
+      .select('id')
+      .eq('id', formData.ownerId)
+      .eq('organization_id', profile.organization_id)
+      .single();
+
+    if (ownerError || !owner) {
+      throw new Error('Seçilen mal sahibi bulunamadı veya yetkiniz yok');
+    }
+
     // Get coordinates for the mahalle
     const coordinates = getMahalleCoordinates(formData.mahalle);
 
@@ -80,7 +101,7 @@ export const portfolioService = {
     };
 
     // Insert portfolio
-    const { data, error } = await supabase
+    const { data: portfolio, error: portfolioError } = await supabase
       .from('portfolios')
       .insert({
         organization_id: profile.organization_id,
@@ -89,6 +110,7 @@ export const portfolioService = {
         status: formData.status,
         type: formData.type,
         price: formData.price,
+        owner_id: formData.ownerId,
         il: formData.il,
         ilce: formData.ilce,
         mahalle: formData.mahalle,
@@ -101,8 +123,27 @@ export const portfolioService = {
       .select()
       .single();
 
-    if (error) throw error;
-    return data;
+    if (portfolioError) throw portfolioError;
+
+    // Resimleri ekle (varsa)
+    if (formData.imageUrls && formData.imageUrls.length > 0) {
+      const imageInserts = formData.imageUrls.map((url, index) => ({
+        portfolio_id: portfolio.id,
+        image_url: url,
+        sort_order: index,
+      }));
+
+      const { error: imagesError } = await supabase
+        .from('property_images')
+        .insert(imageInserts);
+
+      if (imagesError) {
+        console.error('Error inserting images:', imagesError);
+        // Resim hatası olsa bile portföy eklendi, sadece log et
+      }
+    }
+
+    return portfolio;
   },
 
   // Portföy güncelle
@@ -145,11 +186,35 @@ export const portfolioService = {
       .single();
 
     if (error) throw error;
+
+    // Resimleri güncelle (varsa)
+    if (formData.imageUrls !== undefined) {
+      // Önce mevcut resimleri sil
+      await supabase
+        .from('property_images')
+        .delete()
+        .eq('portfolio_id', id);
+
+      // Yeni resimleri ekle
+      if (formData.imageUrls.length > 0) {
+        const imageInserts = formData.imageUrls.map((url, index) => ({
+          portfolio_id: id,
+          image_url: url,
+          sort_order: index,
+        }));
+
+        await supabase
+          .from('property_images')
+          .insert(imageInserts);
+      }
+    }
+
     return data;
   },
 
   // Portföy sil
   async delete(id: string) {
+    // Cascade delete will automatically remove images
     const { error } = await supabase
       .from('portfolios')
       .delete()
@@ -158,8 +223,22 @@ export const portfolioService = {
     if (error) throw error;
   },
 
-  // Portföy resmi ekle
-  async addImage(portfolioId: string, imageUrl: string, sortOrder: number = 0) {
+  // Tek resim ekle (mevcut portföye)
+  async addImage(portfolioId: string, imageUrl: string, sortOrder?: number) {
+    // Eğer sortOrder verilmediyse, mevcut resimlerin sayısını al
+    if (sortOrder === undefined) {
+      const { data: existingImages } = await supabase
+        .from('property_images')
+        .select('sort_order')
+        .eq('portfolio_id', portfolioId)
+        .order('sort_order', { ascending: false })
+        .limit(1);
+
+      sortOrder = existingImages && existingImages.length > 0 
+        ? existingImages[0].sort_order + 1 
+        : 0;
+    }
+
     const { data, error } = await supabase
       .from('property_images')
       .insert({
@@ -174,7 +253,7 @@ export const portfolioService = {
     return data;
   },
 
-  // Portföy resmi sil
+  // Resim sil
   async deleteImage(imageId: string) {
     const { error } = await supabase
       .from('property_images')
@@ -182,5 +261,29 @@ export const portfolioService = {
       .eq('id', imageId);
 
     if (error) throw error;
+  },
+
+  // Resim sırasını güncelle
+  async updateImageOrder(portfolioId: string, imageUrls: string[]) {
+    // Önce mevcut resimleri sil
+    await supabase
+      .from('property_images')
+      .delete()
+      .eq('portfolio_id', portfolioId);
+
+    // Yeni sırayla ekle
+    if (imageUrls.length > 0) {
+      const imageInserts = imageUrls.map((url, index) => ({
+        portfolio_id: portfolioId,
+        image_url: url,
+        sort_order: index,
+      }));
+
+      const { error } = await supabase
+        .from('property_images')
+        .insert(imageInserts);
+
+      if (error) throw error;
+    }
   },
 };
