@@ -20,6 +20,7 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from 'lucide-react';
 
 const NavItem = ({
@@ -81,6 +82,9 @@ const SidebarContent = ({
       </NavItem>
       <NavItem href="/locations" icon={Map} isCollapsed={isCollapsed}>
         Bölgelerim
+      </NavItem>
+      <NavItem href="/download" icon={Download} isCollapsed={isCollapsed}>
+        Veri İndirme
       </NavItem>
     </nav>
     <div className="px-2 py-4 border-t border-gray-700">

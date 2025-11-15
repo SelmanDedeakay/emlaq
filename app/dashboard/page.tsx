@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ComponentType, SVGProps } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Folder, Users, TrendingUp, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -191,8 +192,22 @@ export default function Dashboard() {
   );
 }
 
-const StatCard = ({ icon: Icon, label, value, color, href }: any) => {
-  const colors = {
+type StatColor = 'blue' | 'green' | 'purple';
+
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color,
+  href,
+}: {
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  label: string;
+  value: number | string;
+  color: StatColor;
+  href?: string;
+}) => {
+  const colors: Record<StatColor, string> = {
     blue: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300',
     green: 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-300',
     purple: 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300',
