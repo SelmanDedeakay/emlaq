@@ -52,12 +52,12 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
     return () => { mounted = false; };
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     if (!formData.il) { setDistricts([]); setAvailableMahalleler([]); return; }
     let mounted = true;
     (async () => {
       try {
-        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        const ds = await turkiyeService.getDistrictsByProvinceName(formData.il);
         if (mounted) setDistricts(ds || []);
       } catch (err) {
         console.error('Failed loading districts', err);
@@ -72,7 +72,7 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
     (async () => {
       try {
         const m = await turkiyeService.getNeighborhoods(formData.il, formData.ilce);
-        if (mounted) setAvailableMahalleler(m.map(x => x.slug));
+        if (mounted) setAvailableMahalleler(m.map(x => x.name));
       } catch (err) {
         console.error('Failed loading mahalleler', err);
       }
@@ -82,7 +82,11 @@ export default function CustomerForm({ onClose, onSubmit }: CustomerFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Ensure we don't send slugs to the DB: convert il/ilce slugs to names
+    const provinceName = (provinces as any[]).find((p) => p.slug === formData.il)?.name || formData.il;
+    const districtName = (districts as any[]).find((d) => d.slug === formData.ilce)?.name || formData.ilce;
+    const payload = { ...formData, il: provinceName, ilce: districtName };
+    onSubmit(payload);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

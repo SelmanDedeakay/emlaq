@@ -65,7 +65,7 @@ export default function LocationsPage() {
     let mounted = true;
     (async () => {
       try {
-        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        const ds = await turkiyeService.getDistrictsByProvinceName(formData.il);
         if (mounted) setDistricts(ds || []);
       } catch (err) {
         console.error('Failed loading districts', err);
@@ -80,7 +80,7 @@ export default function LocationsPage() {
     (async () => {
       try {
         const m = await turkiyeService.getNeighborhoods(formData.il, formData.ilce);
-        if (mounted) setAvailableMahalleler(m.map(x => x.slug));
+        if (mounted) setAvailableMahalleler(m.map(x => x.name));
       } catch (err) {
         console.error('Failed loading mahalleler', err);
       }
@@ -110,9 +110,14 @@ export default function LocationsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.mahalleler.length === 0) return;
+    // Convert slugs to names before saving location so DB doesn't store slugs
+    const provinceName = (provinces as any[]).find((p) => p.slug === formData.il)?.name || formData.il;
+    const districtName = (districts as any[]).find((d) => d.slug === formData.ilce)?.name || formData.ilce;
     const newLocation: SavedLocation = {
       id: Date.now().toString(),
       ...formData,
+      il: provinceName,
+      ilce: districtName,
     };
     setLocations([...locations, newLocation]);
     setFormData({

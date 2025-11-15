@@ -91,16 +91,12 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
   }, [property]);
 
   // load districts when province (il) changes
-  useEffect(() => {
-    if (!formData.il) {
-      setDistricts([]);
-      setMahalleler([]);
-      return;
-    }
+useEffect(() => {
+    if (!formData.il) { setDistricts([]); setMahalleler([]); return; }
     let mounted = true;
     (async () => {
       try {
-        const ds = await turkiyeService.getDistrictsByProvinceSlug(formData.il);
+        const ds = await turkiyeService.getDistrictsByProvinceName(formData.il);
         if (mounted) setDistricts(ds || []);
       } catch (err) {
         console.error('Failed loading districts', err);
@@ -109,12 +105,8 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
     return () => { mounted = false; };
   }, [formData.il]);
 
-  // load mahalleler when ilce changes
   useEffect(() => {
-    if (!formData.il || !formData.ilce) {
-      setMahalleler([]);
-      return;
-    }
+    if (!formData.il || !formData.ilce) { setMahalleler([]); return; }
     let mounted = true;
     (async () => {
       try {
@@ -173,7 +165,13 @@ export default function PropertyForm({ onClose, onSubmit, property }: PropertyFo
     }
     // final validation
     if (!validateStep(currentStep)) return;
-    onSubmit(formData);
+    // Convert any slug values to human-readable names before sending to the DB
+    const provinceName = provinces.find((p: any) => p.slug === formData.il)?.name || formData.il;
+    const districtName = districts.find((d: any) => d.slug === formData.ilce)?.name || formData.ilce;
+    const mahalleName = mahalleler.find((m: any) => m.slug === formData.mahalle)?.name || formData.mahalle;
+
+    const payload = { ...formData, il: provinceName, ilce: districtName, mahalle: mahalleName };
+    onSubmit(payload);
   };
 
   const goBack = () => {

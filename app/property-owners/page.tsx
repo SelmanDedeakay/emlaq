@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '../components/DashboardLayout';
 import { propertyOwnerService } from '../services/property-owner.service';
 import OwnerForm from '../components/OwnerForm';
@@ -11,6 +12,7 @@ export default function PropertyOwnersPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingOwner, setEditingOwner] = useState<any | null>(null);
+  const router = useRouter();
 
   const loadOwners = async () => {
     try {
@@ -68,7 +70,9 @@ export default function PropertyOwnersPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {owners.map((o) => (
-                  <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <tr key={o.id} 
+                      onClick={() => router.push(`/property-owners/${o.id}`)}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{o.full_name}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.phone || '-'}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.email || '-'}</td>
@@ -79,10 +83,11 @@ export default function PropertyOwnersPage() {
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{o.notes || '-'}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="inline-flex items-center gap-2">
-                        <button title="Düzenle" onClick={() => { setEditingOwner(o); }} className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md">
+                        <button title="Düzenle" onClick={(e) => { e.stopPropagation(); setEditingOwner(o); }} className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md">
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button title="Sil" onClick={async () => {
+                        <button title="Sil" onClick={async (e) => {
+                          e.stopPropagation();
                           const ok = confirm('Bu mal sahibini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.');
                           if (!ok) return;
                           try {

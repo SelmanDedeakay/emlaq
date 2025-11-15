@@ -54,6 +54,21 @@ export const portfolioService = {
     return data;
   },
 
+  // Mal sahibine göre portföyleri getir
+  async getByOwnerId(ownerId: string) {
+    const { data, error } = await supabase
+      .from('portfolios')
+      .select(`
+        *,
+        property_images(*)
+      `)
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
   // Yeni portföy ekle
   async create(formData: PortfolioFormData) {
     // Get current user
