@@ -254,13 +254,13 @@ export default function PropertyDetailPage() {
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Özellikler</h3>
                 {property.features && Object.keys(property.features).length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(property.features).map(([key, value]) => 
-                      value && (
+                    {Object.entries(property.features as Record<string, any>)
+                      .filter(([, v]) => Boolean(v))
+                      .map(([key]) => (
                         <span key={key} className="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 text-xs px-2 py-1 rounded">
                           {getFeatureDisplayName(key)}
                         </span>
-                      )
-                    )}
+                      ))}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 dark:text-gray-400">Özellik bilgisi yok</p>
